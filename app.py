@@ -100,6 +100,14 @@ html, body, [class*="css"] { font-family: \'Inter\', sans-serif; }
 }
 .card-desc { color: var(--muted); font-size: 0.88rem; margin-bottom: 1rem; }
 
+
+/* ---------- Form field labels ---------- */
+[data-testid="stWidgetLabel"] p {
+    color: var(--navy) !important;
+    font-weight: 600 !important;
+    font-size: 0.85rem !important;
+}
+
 /* ---------- Inputs ---------- */
 [data-testid="stFileUploaderDropzone"] {
     background: var(--cyan-soft) !important;
@@ -284,16 +292,28 @@ st.markdown(f"""
 <div class="subhead">AI screening for canine ehrlichiosis from a blood smear image</div>
 """, unsafe_allow_html=True)
 
+QUICK_FACTS = [
+    "PCR studies show 32-39% of Thai dogs test positive for Ehrlichia, but routine blood smears catch only about 1.32% -- morulae are easy to miss by eye.",
+    "Ehrlichia morulae are visible only during the acute phase, the same window when treatment works best.",
+    "Ehrlichiosis is spread by the brown dog tick -- year-round tick prevention is the most effective way to reduce risk.",
+    "A dog can carry Ehrlichia for months with no visible symptoms before entering the more severe chronic phase.",
+    "Thrombocytopenia (low platelets) is seen in about 80% of ehrlichiosis cases -- one of the most consistent lab signs.",
+]
+
+import random as _random
+_fact = _random.choice(QUICK_FACTS)
+confidence = DEFAULT_CONFIDENCE
+
 with st.sidebar:
-    st.markdown("### Settings")
-    confidence = st.slider("Confidence Threshold", 0.0, 1.0, DEFAULT_CONFIDENCE, 0.05)
-    st.markdown("---")
+    st.markdown("### How to use")
     st.markdown(
-        "**How to use**\n"
         "1. Fill in the dog\'s basic profile\n"
         "2. Upload a blood smear image\n"
         "3. Click Analyze and review the result"
     )
+    st.markdown("---")
+    st.markdown("### Did you know?")
+    st.info(_fact)
     st.markdown("---")
     st.caption("This is a preliminary screening result, not a final diagnosis. A veterinarian should confirm with ELISA/PCR testing.")
 
@@ -308,10 +328,10 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 p1, p2, p3, p4 = st.columns(4)
-breed = p1.text_input("Breed", placeholder="e.g. Thai Bangkaew, Poodle")
-age_years = p2.number_input("Age (years)", min_value=0.0, max_value=25.0, value=3.0, step=0.5)
-sex = p3.selectbox("Sex", ["Male", "Female"])
-has_condition = p4.selectbox("Pre-existing condition?", ["No", "Yes"]) == "Yes"
+breed = p1.text_input("Breed", placeholder="e.g. Thai Bangkaew, Poodle", label_visibility="visible")
+age_years = p2.number_input("Age (years)", min_value=0.0, max_value=25.0, value=3.0, step=0.5, label_visibility="visible")
+sex = p3.selectbox("Sex", ["Male", "Female"], label_visibility="visible")
+has_condition = p4.selectbox("Pre-existing condition?", ["No", "Yes"], label_visibility="visible") == "Yes"
 condition_detail = ""
 if has_condition:
     condition_detail = st.text_input("Condition detail (optional)", placeholder="e.g. immune disorder, chronic illness")
