@@ -1,16 +1,16 @@
 """
 Ehrlich-Z Web App
 ==================
-ระบบตรวจหาเชื้อ Ehrlichia canis จากภาพสเมียร์เลือดสุนัข
+AI screening tool for Ehrlichia canis in canine blood smear images.
 
-วิธีรันในเครื่อง:
+Run locally:
     pip install streamlit requests opencv-python-headless pillow numpy
     streamlit run app.py
 
-วิธี deploy ให้คนอื่นใช้ได้ฟรี:
-    1. อัปโหลดไฟล์นี้ + requirements.txt ขึ้น GitHub (repo แยกต่างหาก)
-    2. ไปที่ share.streamlit.io -> เชื่อม GitHub -> เลือก repo -> Deploy
-    3. ได้ลิงก์เว็บสาธารณะทันที (ฟรี ไม่ต้องมีเซิร์ฟเวอร์ของตัวเอง)
+Deploy for free:
+    1. Push this file + requirements.txt to a GitHub repo
+    2. Go to share.streamlit.io -> connect GitHub -> select repo -> Deploy
+    3. Get a public link instantly (free, no server needed)
 """
 
 import streamlit as st
@@ -21,22 +21,22 @@ from PIL import Image
 import io
 
 # ============================================================
-# ตั้งค่า Roboflow (แก้ให้ตรงกับของจริง)
+# Roboflow settings (fill in your real values)
 # ============================================================
-ROBOFLOW_API_KEY = "2G5Lbz1TQC0doTcK4YiO"          # <-- แก้เป็นของจริง
-MODEL_ID = "my-first-project-cp4zt/1"                # <-- แก้เป็นของจริง (project/version)
-TARGET_CLASS = "Ehrilchia canis"                     # <-- ต้องตรงกับที่ label ไว้ใน Roboflow เป๊ะๆ
+ROBOFLOW_API_KEY = "2G5Lbz1TQC0doTcK4YiO"          # <-- your real API key
+MODEL_ID = "my-first-project-cp4zt/1"                # <-- your real model_id (project/version)
+TARGET_CLASS = "Ehrilchia canis"                     # <-- must match the exact label spelling in Roboflow
 DEFAULT_CONFIDENCE = 0.5
 
 st.set_page_config(page_title="Ehrlich-Z", page_icon="🩸", layout="wide")
 
 
 # ============================================================
-# ดีไซน์ — ธีมสีย้อมเลือด (Giemsa stain) แทนธีม "Image Insight" เดิม
+# Styling — Giemsa-stain theme
 # ============================================================
 st.markdown("""
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=IBM+Plex+Sans+Thai:wght@400;500;600&family=IBM+Plex+Mono:wght@500;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500;600&display=swap');
 
 :root {
     --bg-deep: #1E1330;
@@ -54,7 +54,7 @@ st.markdown("""
     background-attachment: fixed;
 }
 
-html, body, [class*="css"] { font-family: 'IBM Plex Sans Thai', sans-serif; }
+html, body, [class*="css"] { font-family: 'IBM Plex Sans', sans-serif; }
 
 .eyebrow {
     font-family: 'IBM Plex Mono', monospace;
@@ -191,10 +191,10 @@ div.stButton > button:hover { background: linear-gradient(120deg, #A9382F, #C144
 
 
 # ============================================================
-# ฟังก์ชันหลัก
+# Core functions
 # ============================================================
 def infer_image_bytes(image_bytes, confidence=0.5):
-    """ส่งภาพ (bytes) เข้าโมเดล Roboflow ผ่าน REST API"""
+    """Send image bytes to the Roboflow model via REST API"""
     url = f"https://detect.roboflow.com/{MODEL_ID}"
     params = {
         "api_key": ROBOFLOW_API_KEY,
@@ -206,7 +206,7 @@ def infer_image_bytes(image_bytes, confidence=0.5):
 
 
 def split_image_into_9(pil_image):
-    """แบ่งภาพ PIL เป็น 9 ส่วน (3x3 grid)"""
+    """Split a PIL image into 9 tiles (3x3 grid)"""
     img = np.array(pil_image.convert("RGB"))
     h, w = img.shape[:2]
     tile_w, tile_h = w // 3, h // 3
@@ -241,16 +241,16 @@ def draw_boxes(pil_image, predictions):
 
 def calculate_infection_rate(total_cells, infected_cells):
     if total_cells == 0:
-        return 0.0, "no_data", "ไม่พบเซลล์เม็ดเลือดขาวในภาพ — ลองถ่ายภาพใหม่"
+        return 0.0, "no_data", "No white blood cells detected — try another image"
     percent = round((infected_cells / total_cells) * 100, 2)
     if percent == 0:
-        return percent, "negative", "ไม่พบการติดเชื้อ"
+        return percent, "negative", "No infection detected"
     elif percent <= 2:
-        return percent, "mild", "ระดับต่ำ"
+        return percent, "mild", "Mild"
     elif percent <= 5:
-        return percent, "moderate", "ระดับปานกลาง"
+        return percent, "moderate", "Moderate"
     else:
-        return percent, "severe", "ระดับสูง"
+        return percent, "severe", "Severe"
 
 
 LEVEL_STYLE = {
@@ -263,60 +263,60 @@ LEVEL_STYLE = {
 
 
 # ============================================================
-# หัวหน้าเว็บ
+# Header
 # ============================================================
 st.markdown("""
 <div class="eyebrow">AI SCREENING · CANINE EHRLICHIOSIS</div>
 <div class="wordmark">🩸 Ehrlich<span class="drop">-Z</span></div>
-<div class="subhead">มองหา morulae ของ Ehrlichia canis ในภาพสเมียร์เลือด — เร็วกว่าการนั่งส่องด้วยตาเปล่า</div>
+<div class="subhead">Spotting Ehrlichia canis morulae in blood smear images — faster than scanning by eye.</div>
 """, unsafe_allow_html=True)
 
 with st.sidebar:
-    st.markdown("### ⚙️ ตั้งค่า")
+    st.markdown("### ⚙️ Settings")
     confidence = st.slider("Confidence Threshold", 0.0, 1.0, DEFAULT_CONFIDENCE, 0.05)
     st.markdown("---")
     st.markdown(
-        "**วิธีใช้**\n"
-        "1. อัปโหลดภาพสเมียร์เลือดที่ถ่ายจากกล้องจุลทรรศน์\n"
-        "2. กด \u201cวิเคราะห์รูปภาพ\u201d\n"
-        "3. ดูผล % เซลล์ติดเชื้อและระดับความรุนแรง"
+        "**How to use**\n"
+        "1. Upload a blood smear image taken through a microscope\n"
+        "2. Click \u201cAnalyze Image\u201d\n"
+        "3. Review the infected-cell percentage and severity level"
     )
     st.markdown("---")
-    st.caption("⚠️ ผลลัพธ์เป็นการคัดกรองเบื้องต้นเท่านั้น ไม่ใช่การวินิจฉัยขั้นสุดท้าย ควรให้สัตวแพทย์ตรวจสอบซ้ำและยืนยันด้วย ELISA/PCR")
+    st.caption("⚠️ This is a preliminary screening result, not a final diagnosis. A veterinarian should confirm with ELISA/PCR testing.")
 
 # ============================================================
-# การ์ด: เริ่มจากรูปของคุณ (อัปโหลด + ปุ่มวิเคราะห์)
+# Card: Start with your image (upload + analyze button)
 # ============================================================
 st.markdown('<div class="paper-card">', unsafe_allow_html=True)
 st.markdown("""
 <div class="card-eyebrow">STEP 1 — UPLOAD</div>
-<div class="card-title">เริ่มจากภาพสเมียร์เลือดของคุณ</div>
-<div class="card-desc">อัปโหลดภาพหนึ่งภาพ เพื่อดูสัดส่วนเซลล์ติดเชื้อและระดับความรุนแรงอย่างรวดเร็ว</div>
+<div class="card-title">Start with your blood smear image</div>
+<div class="card-desc">Upload one image to see the infected-cell ratio and severity level in seconds.</div>
 """, unsafe_allow_html=True)
 
 uploaded_file = st.file_uploader(
-    "ลากรูปมาวางที่นี่ หรือคลิกเพื่อเลือกไฟล์ JPG, PNG",
+    "Drag an image here, or click to browse (JPG, PNG)",
     type=["jpg", "jpeg", "png"],
     label_visibility="collapsed",
 )
-run_clicked = st.button("✨ วิเคราะห์รูปภาพ", disabled=uploaded_file is None)
+run_clicked = st.button("✨ Analyze Image", disabled=uploaded_file is None)
 st.markdown('</div>', unsafe_allow_html=True)
 
 # ============================================================
-# ค่าเริ่มต้นก่อนวิเคราะห์
+# Defaults before analysis
 # ============================================================
 total_cells, infected_cells = 0, 0
-percent, level_key, level_label = 0.0, "no_data", "รอวิเคราะห์"
+percent, level_key, level_label = 0.0, "no_data", "Awaiting analysis"
 annotated_tiles = []
 has_result = False
 
 # ============================================================
-# รันวิเคราะห์จริง
+# Run real analysis
 # ============================================================
 if uploaded_file is not None and run_clicked:
     pil_image = Image.open(uploaded_file)
 
-    with st.spinner("กำลังแบ่งภาพเป็น 9 ส่วน และตรวจจับด้วย AI..."):
+    with st.spinner("Splitting image into 9 tiles and running detection..."):
         tiles = split_image_into_9(pil_image)
         progress = st.progress(0)
         for i, tile in enumerate(tiles):
@@ -329,7 +329,7 @@ if uploaded_file is not None and run_clicked:
                 )
                 annotated_tiles.append(draw_boxes(tile, predictions))
             except Exception as e:
-                st.error(f"เกิดข้อผิดพลาดที่ส่วนที่ {i+1}: {e}")
+                st.error(f"Error on tile {i+1}: {e}")
                 annotated_tiles.append(tile)
             progress.progress((i + 1) / 9)
 
@@ -337,23 +337,23 @@ if uploaded_file is not None and run_clicked:
     has_result = True
 
 # ============================================================
-# การ์ด: QUICK READ — ผลลัพธ์โดยรวม
+# Card: QUICK READ — overall results
 # ============================================================
 st.markdown('<div class="paper-card">', unsafe_allow_html=True)
 st.markdown("""
 <div class="card-eyebrow">QUICK READ</div>
-<div class="card-title">ผลลัพธ์โดยรวม</div>
+<div class="card-title">Overall Results</div>
 """, unsafe_allow_html=True)
 
 c1, c2, c3 = st.columns(3)
 c1.markdown(f"""
 <div class="stat-box stat-total">
-    <div class="label">เซลล์ทั้งหมด</div>
+    <div class="label">Total Cells</div>
     <div class="value">{total_cells if has_result else '\u2014'}</div>
 </div>""", unsafe_allow_html=True)
 c2.markdown(f"""
 <div class="stat-box stat-infected">
-    <div class="label">เซลล์ติดเชื้อ</div>
+    <div class="label">Infected Cells</div>
     <div class="value">{infected_cells if has_result else '\u2014'}</div>
 </div>""", unsafe_allow_html=True)
 c3.markdown(f"""
@@ -364,7 +364,7 @@ c3.markdown(f"""
 st.markdown('</div>', unsafe_allow_html=True)
 
 # ============================================================
-# การ์ด: RESULT LEVEL — คะแนน /100
+# Card: RESULT LEVEL — score out of 100
 # ============================================================
 style = LEVEL_STYLE[level_key]
 score = min(100, round(percent * 15)) if has_result else 0
@@ -372,11 +372,11 @@ score = min(100, round(percent * 15)) if has_result else 0
 st.markdown(f"""
 <div class="paper-card">
     <div class="result-eyebrow">RESULT LEVEL</div>
-    <div class="result-title">ระดับผลของภาพ</div>
-    <div class="result-level {style['class']}">{level_label if has_result else 'รอวิเคราะห์'}</div>
+    <div class="result-title">Severity</div>
+    <div class="result-level {style['class']}">{level_label if has_result else 'Awaiting analysis'}</div>
     <div class="card-desc" style="margin-bottom:0.4rem;">
-        {"อัปโหลดภาพ แล้วกดวิเคราะห์เพื่อดูผลได้ทันที" if not has_result else
-         f"พบเซลล์ที่มี morulae {infected_cells} เซลล์ จากทั้งหมด {total_cells} เซลล์ที่ตรวจพบ"}
+        {"Upload an image and click Analyze to see results instantly." if not has_result else
+         f"Found morulae in {infected_cells} of {total_cells} detected cells."}
     </div>
     <div style="display:flex; justify-content:space-between; font-family:'IBM Plex Mono',monospace; font-size:0.8rem; color:{style['color']};">
         <span>SCORE</span><span>{score}/100</span>
@@ -387,25 +387,25 @@ st.markdown(f"""
 </div>
 """, unsafe_allow_html=True)
 
-st.markdown('<div class="flow-strip">อัปโหลด · วิเคราะห์ · ดูภาพรวม</div>', unsafe_allow_html=True)
+st.markdown('<div class="flow-strip">Upload · Analyze · Review</div>', unsafe_allow_html=True)
 
 # ============================================================
-# ภาพประกอบผล (แสดงเมื่อมีผลลัพธ์แล้ว)
+# Result images (shown after analysis)
 # ============================================================
 if has_result:
     st.markdown('<div class="paper-card">', unsafe_allow_html=True)
     st.markdown("""
     <div class="card-eyebrow">DETECTION MAP</div>
-    <div class="card-title">ภาพที่ตรวจจับแล้ว</div>
-    <div class="card-desc">กรอบสีแดง = สงสัยติดเชื้อ · กรอบสีเขียว = เซลล์ปกติ</div>
+    <div class="card-title">Detected Regions</div>
+    <div class="card-desc">Red box = suspected infected · Green box = normal cell</div>
     """, unsafe_allow_html=True)
     grid_cols = st.columns(3)
     for i, tile_img in enumerate(annotated_tiles):
         with grid_cols[i % 3]:
-            st.image(tile_img, caption=f"ส่วนที่ {i+1}", use_container_width=True)
+            st.image(tile_img, caption=f"Tile {i+1}", use_container_width=True)
     st.markdown('</div>', unsafe_allow_html=True)
 
 st.markdown(
-    '<div class="disclaimer">ผลลัพธ์เป็นการคัดกรองเบื้องต้น ไม่ใช่การวินิจฉัยขั้นสุดท้าย — ควรให้สัตวแพทย์ตรวจสอบซ้ำ</div>',
+    '<div class="disclaimer">This is a preliminary screening result, not a final diagnosis — a veterinarian should confirm.</div>',
     unsafe_allow_html=True,
 )
